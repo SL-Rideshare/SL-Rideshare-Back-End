@@ -16,6 +16,8 @@ let UserSchema = new mongoose.Schema({
   nic: {
     type: String,
     default: "",
+    minLength: 9,
+    maxLength: 12,
     required: true,
   },
 
@@ -33,7 +35,8 @@ let UserSchema = new mongoose.Schema({
 
   username: {
     type: String,
-    default: "",
+    minLength: 6,
+    maxLength: 24,
     required: false,
   },
 
@@ -52,6 +55,8 @@ let UserSchema = new mongoose.Schema({
   imei: {
     type: String,
     default: "",
+    minLength: 15,
+    maxLength: 15,
     required: true,
   },
 
@@ -69,7 +74,7 @@ let UserSchema = new mongoose.Schema({
 
   password: {
     type: String,
-    default: "",
+    minLength: 6,
     required: false,
   },
 
@@ -111,7 +116,19 @@ let UserSchema = new mongoose.Schema({
 
   under_review: {
     type: Boolean,
-    default: true,
+    default: false,
+    required: false,
+  },
+
+  email_verified: {
+    type: Boolean,
+    default: false,
+    required: false,
+  },
+
+  phone_verified: {
+    type: Boolean,
+    default: false,
     required: false,
   },
 
@@ -127,22 +144,8 @@ let UserSchema = new mongoose.Schema({
       "END",
     ],
     default: "INIT",
-    required: true,
-  },
-  email_confirmation_code: {
-    type: Number,
-    unique: true,
-  },
-  email_confirmation_code_timestamp: {
-    type: Date,
-  },
-  phone_confirmation_code: {
-    type: Number,
-    unique: true,
-  },
-  phone_confirmation_code_timestamp: {
-    type: Date,
+    required: false,
   },
 });
 
-module.exports = User = mongoose.model("users", UserSchema);
+module.exports = User = mongoose.model("user", UserSchema);
