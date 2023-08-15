@@ -5,8 +5,7 @@ var crypto = require("crypto");
 
 const sendEmail = require("../../utils/transporter.util");
 
-const User = require("../models/user.model");
-const Token = require("../models/token.model");
+const { User, Token } = require("../models");
 
 const Nexmo = require("nexmo");
 
@@ -18,11 +17,15 @@ const nexmo = new Nexmo({
 const login = async (req, res) => {
   const { username, password } = req.body;
 
+  if (!username || !password) {
+    return res.status(400).send({ msg: "Content not found" });
+  }
+
   User.findOne({
     username: username,
   }).exec((err, user) => {
     if (err) {
-      return res.status(500).send({ data: err });
+      return res.status(400).send({ msg: err });
     }
 
     if (!user) {
@@ -33,16 +36,16 @@ const login = async (req, res) => {
 
     if (!passwordIsValid) {
       return res.status(401).send({
-        access_token: null,
+        token: null,
         data: "Invalid credentials.",
       });
     }
 
-    var token = jwt.sign({ id: user.id }, config.secret, {
+    var token = jwt.sign({ id: user._id }, "SLRS", {
       expiresIn: 86400,
     });
 
-    return res.status(200).send({ ...user, access_token: token });
+    return res.status(200).send({ ...user, token: token });
   });
 };
 
@@ -58,34 +61,34 @@ const register = async (req, res) => {
   ];
 
   const user = req.body;
-  const userFound = await getUserById(user.id);
 
-  if (userFound) {
+  const userFound = await getUserByKey({ device_token: user.device_token });
+
+  if (userFound && !user.isUpdate) {
     switch (states.indexOf(userFound.reg_state)) {
       case 0:
         return res
           .status(500)
-          .send({ data: "Conflict found in database, contact admin." });
+          .send({ msg: "Conflict found in database, contact admin." });
       case 1:
         if (!user.captured_nic) {
-          return res
-            .status(400)
-            .send({ data: "Couldn't identify NIC number." });
+          return res.status(400).send({ msg: "Couldn't identify NIC number." });
         } else if (userFound.nic !== user.captured_nic) {
-          return res.status(400).send({ data: "NIC numbers didn't match." });
+          return res.status(400).send({ msg: "NIC numbers didn't match." });
         } else {
-          User.findOneAndUpdate(user.id, {
+          User.findOneAndUpdate(user._id, {
+            captured_nic: user.captured_nic,
+            nic_location: user.nic_location,
             reg_state: "PENDING_DATA",
           })
-            .then(() => {
-              return res
-                .status(200)
-                .send({ data: "NIC successfully verified." });
+            .then((userResult) => {
+              return res.status(200).send({ data: userResult });
             })
             .catch((err) => {
+              console.log(err);
               return res
                 .status(400)
-                .send({ data: "Unable to update user.", err: err });
+                .send({ msg: "Unable to update user.", err: err });
             });
         }
         break;
@@ -97,6 +100,7 @@ const register = async (req, res) => {
         let phoneNumberFound =
           user.contact_number &&
           (await getUserByKey({ contact_number: user.contact_number }));
+
         if (user.first_name && user.last_name && user.nic && user.dob) {
           if (
             !user.username ||
@@ -105,33 +109,34 @@ const register = async (req, res) => {
           ) {
             return res
               .status(400)
-              .send({ data: "A valid username is required." });
+              .send({ msg: "A valid username is required." });
           } else if (usernameFound) {
-            return res.status(400).send({ data: "Username already in use." });
+            return res.status(400).send({ msg: "Username already in use." });
           } else if (
             !user.email ||
             !user.email.match(
               /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
             )
           ) {
-            return res.status(400).send({ data: "A valid email is required." });
+            return res.status(400).send({ msg: "A valid email is required." });
           } else if (emailFound) {
-            return res.status(400).send({ data: "Email already in use." });
+            return res.status(400).send({ msg: "Email already in use." });
           } else if (
             !user.contact_number ||
-            user.contact_number.length !== 10
+            user.contact_number.length !== 11 ||
+            !validMobileNumber(user.contact_number)
           ) {
             return res
               .status(400)
-              .send({ data: "A valid phone number is required." });
+              .send({ msg: "A valid phone number is required." });
           } else if (phoneNumberFound) {
             return res
               .status(400)
-              .send({ data: "Phone number already in use." });
+              .send({ msg: "Phone number already in use." });
           } else if (!user.postal_code || user.postal_code.length !== 5) {
             return res
               .status(400)
-              .send({ data: "A valid postal code is required." });
+              .send({ msg: "A valid postal code is required." });
           } else if (
             !user.password ||
             !user.password.match(
@@ -140,57 +145,55 @@ const register = async (req, res) => {
           ) {
             return res
               .status(400)
-              .send({ data: "A valid password is required." });
+              .send({ msg: "A valid password is required." });
           } else if (!user.confirm_password) {
             return res
               .status(400)
-              .send({ data: "Password confirmation is required." });
+              .send({ msg: "Password confirmation is required." });
           } else if (user.password !== user.confirm_password) {
-            return res.status(400).send({ data: "Passwords don't match." });
+            return res.status(400).send({ msg: "Passwords don't match." });
           } else {
-            User.findOneAndUpdate(user.id, {
+            User.findOneAndUpdate(user._id, {
               ...user,
-              dob: moment(user.dob, "DD/MM/YYYY").toDate(),
-              password: bcrypt.hashSync(req.body.password, 8),
+              password: bcrypt.hashSync(user.password, 8),
               confirm_password: null,
             })
               .then(() => {
                 Token.create({
-                  user_id: user.id,
+                  user_id: user._id,
                   token: crypto.randomBytes(32).toString("hex"),
-                  created_at: moment().toDate(),
                 })
                   .then(async (token) => {
-                    const message = `${process.env.BASE_URL}/user/verify/${user.id}/${token.token}`;
+                    const message = `${process.env.BASE_URL}/user/verify/${user._id}/${token.token}`;
                     await sendEmail(user.email, "Verify Email", message)
                       .then(() => {
-                        User.findOneAndUpdate(user.id, {
+                        User.findOneAndUpdate(user._id, {
                           reg_state: "PENDING_EMAIL_VERIFICATION",
                         })
-                          .then(() => {
+                          .then((userResult) => {
                             return res.status(200).send({
-                              data: "Email verification link sent to your email.",
+                              data: userResult,
+                              msg: "Email verification link sent to your email.",
                             });
                           })
                           .catch((err) => {
                             return res.status(400).send({
-                              data: "Unable to update user.",
+                              msg: "Unable to update user.",
                               err: err,
                             });
                           });
                       })
                       .catch(async (err) => {
                         await Token.findOneAndDelete({ _id: token._id });
-
                         return res.status(400).send({
-                          data: "Couldn't send verification email",
+                          msg: "Couldn't send verification email",
                           err: err,
                         });
                       });
                   })
                   .catch((err) => {
                     return res.status(400).send({
-                      data: "Couldn't create token.",
+                      msg: "Couldn't create token.",
                       err: err,
                     });
                   });
@@ -198,13 +201,13 @@ const register = async (req, res) => {
               .catch((err) => {
                 return res
                   .status(400)
-                  .send({ data: "Unable to update user.", err: err });
+                  .send({ msg: "Unable to update user.", err: err });
               });
           }
         } else {
           return res
             .status(400)
-            .send({ data: "Missing previous data key values." });
+            .send({ msg: "Missing previous data key values." });
         }
         break;
       case 3:
@@ -213,24 +216,34 @@ const register = async (req, res) => {
           Token.create({
             user_id: user._id,
             token: otp,
+            created_at: moment().toDate(),
           })
             .then(async (token) => {
               nexmo.message.sendSms(
-                process.env.NEXMO_VIRTUAL_NUMBER,
+                "SL-Rideshare",
                 user.contact_number,
                 `Your OTP is ${otp}`,
                 async (err, responseData) => {
                   if (err) {
                     await Token.findOneAndDelete({ _id: token._id });
-
                     return res
                       .status(400)
-                      .send({ data: "Unable to send OTP", err: err });
+                      .send({ msg: "Unable to send OTP", err: err });
                   } else {
-                    return res.status(200).send({
-                      data: "OTP sent to your phone number.",
-                      response: responseData,
-                    });
+                    User.findOneAndUpdate(user._id, {
+                      reg_state: "PENDING_PHONE_VERIFICATION",
+                    })
+                      .then((userResult) => {
+                        return res.status(200).send({
+                          data: userResult,
+                          response: responseData,
+                        });
+                      })
+                      .catch((err) => {
+                        return res
+                          .status(400)
+                          .send({ data: "Unable to update user.", err: err });
+                      });
                   }
                 }
               );
@@ -238,101 +251,106 @@ const register = async (req, res) => {
             .catch((err) => {
               return res
                 .status(400)
-                .send({ data: "Unable to create token.", err: err });
+                .send({ msg: "Unable to create token.", err: err });
             });
         } else {
-          User.findOneAndUpdate(user.id, {
+          User.findOneAndUpdate(user._id, {
             email_verified: false,
             reg_state: "PENDING_EMAIL_VERIFICATION",
           })
             .then(() => {
-              return res.status(400).send({ data: "Email not verified." });
+              return res.status(400).send({ msg: "Email not verified." });
             })
             .catch((err) => {
               return res
                 .status(400)
-                .send({ data: "Unable to update user.", err: err });
+                .send({ msg: "Unable to update user.", err: err });
             });
         }
         break;
       case 4:
-        var { id, otp } = user;
+        var { _id, otp } = user;
 
-        verifyPhoneNumber(id, otp)
+        verifyPhoneNumber(_id, otp)
           .then((res) => {
-            if (res.code === 200) {
-              return res
-                .status(200)
-                .send({ data: "Phone verified successfully." });
-            } else {
-              return res
-                .status(400)
-                .send({ data: "An error occured when verifiying." });
-            }
+            return res
+              .status(200)
+              .send({ data: "Phone verified successfully." });
           })
           .catch((err) => {
-            return res.status(400).send({ data: err.data, err: err.err });
+            return res.status(400).send(err);
           });
 
         break;
       case 5:
-        var { id, refName, refId } = user;
+        var { _id, ref_code } = user;
 
-        if (!refName) {
+        if (!ref_code) {
           return res
             .status(400)
-            .send({ data: "A valid referee name is required." });
-        } else if (!refId) {
-          return res
-            .status(400)
-            .send({ data: "A valid referee id is required." });
-        }
-
-        // TODO: Check for valid ref_id here
-        else {
-          User.findOneAndUpdate(id, {
-            reg_state: "END",
-            ref_name: refName,
-            ref_id: refId,
-            recommended: false,
-            under_review: true,
+            .send({ msg: "A valid referee code is required." });
+        } else {
+          User.findOne({
+            ref_code: ref_code,
           })
-            .then(() => {
-              return res.status(200).send({ data: "Succesfully registered." });
+            .then((u) => {
+              if (u.ref_code === ref_code) {
+                return res
+                  .status(400)
+                  .send({ msg: "A valid referee code is required." });
+              } else {
+                User.findOneAndUpdate(_id, {
+                  reg_state: "END",
+                  ref_by: ref_code,
+                  recommended: false,
+                  under_review: true,
+                })
+                  .then((userResult) => {
+                    return res.status(200).send({ data: userResult });
+                  })
+                  .catch((err) => {
+                    return res
+                      .status(400)
+                      .send({ msg: "Unable to update user.", err: err });
+                  });
+              }
             })
             .catch((err) => {
-              return res
-                .status(400)
-                .send({ data: "Unable to update user.", err: err });
+              return res.status(400).send({
+                data: "Referee with given code was not found",
+                err: err,
+              });
             });
         }
         break;
       case 6:
-        return res.status(500).send({ data: "Already registered." });
+        return res.status(500).send({ msg: "Already registered." });
       default:
-        return res.status(500).send({ data: "Invalid register state found." });
+        return res.status(500).send({ msg: "Invalid register state found." });
     }
   } else {
-    let imeiFound = user.imei && (await getUserByKey({ imei: user.imei }));
+    let deviceTokenFound =
+      user.device_token &&
+      (await getUserByKey({ device_token: user.device_token }));
 
     if (!user.first_name || !/^[A-Za-z]*$/i.test(user.first_name)) {
-      return res.status(400).send({ data: "A valid first name is required." });
+      return res.status(400).send({ msg: "A valid first name is required." });
     } else if (!user.last_name || !/^[A-Za-z]*$/i.test(user.last_name)) {
-      return res.status(400).send({ data: "A valid last name is required." });
+      return res.status(400).send({ msg: "A valid last name is required." });
     } else if (!user.nic || user.nic.length < 9 || user.nic.length > 12) {
-      return res.status(400).send({ data: "A valid NIC format is required." });
+      return res.status(400).send({ msg: "A valid NIC format is required." });
     } else if (!validNicFormat(user.nic)) {
       return res.status(400).send({
-        data: "A valid NIC format is required (You must be within ages 18 and 80 as well)",
+        msg: "A valid NIC format is required (You must be within ages 18 and 80 as well)",
       });
     } else if (!user.dob || !moment(user.dob, "DD/MM/YYYY", true).isValid()) {
       return res
         .status(400)
-        .send({ data: "A valid date of birth is required." });
-    } else if (moment().diff(moment(user.dob, "DD/MM/YYYY"), "years") < 18) {
+        .send({ msg: "A valid date of birth is required." });
+    } else if (moment().diff(moment(user.dob, "DD/MM/YYYY"), "years") < 16) {
       return res
         .status(400)
-        .send({ data: "You must be at least 18 years of age." });
+        .send({ msg: "You must be at least 16 years of age." });
     } else if (
       !moment(
         getDobFromNic(user.nic, user.nic.length === 12),
@@ -340,71 +358,100 @@ const register = async (req, res) => {
       ).isSame(moment(user.dob, "DD/MM/YYYY"))
     ) {
       return res.status(400).send({
-        data: "Date of birth in NIC doesn't match with the provided one.",
+        msg: "Date of birth in NIC doesn't match with the provided one.",
       });
-    } else if (!user.imei || user.imei.length !== 15) {
-      return res.status(400).send({ data: "A valid IMEI is required." });
-    } else if (imeiFound) {
-      return res.status(400).send({ data: "IMEI already in use." });
+    } else if (!user.device_token || user.device_token.length !== 16) {
+      return res.status(400).send({ msg: "A valid device token is required." });
+    } else if (deviceTokenFound) {
+      return res.status(400).send({ msg: "Device token already in use." });
     } else {
-      User.create({
-        ...user,
-        dob: moment(user.dob, "DD/MM/YYYY").toDate(),
-        reg_state: "PENDING_NIC_VERIFICATION",
-      })
-        .then((user) => {
-          return res.status(200).send({ data: user });
+      if (user.isUpdate) {
+        User.findByIdAndUpdate(
+          user._id,
+          {
+            first_name: user.first_name,
+            last_name: user.last_name,
+            nic: user.nic,
+            dob: user.dob,
+          },
+          { new: true }
+        )
+          .then((userResult) => {
+            return res.status(200).send({ data: userResult });
+          })
+          .catch((err) => {
+            return res
+              .status(400)
+              .send({ msg: "Unable to update user.", err: err });
+          });
+      } else {
+        User.create({
+          ...user,
+          ref_code: crypto.randomInt(10000000, 99999999),
+          reg_state: "PENDING_NIC_VERIFICATION",
         })
-        .catch((err) => {
-          return res
-            .status(400)
-            .send({ data: "Unable to create user.", err: err });
-        });
+          .then((userResult) => {
+            return res.status(200).send({ data: userResult });
+          })
+          .catch((err) => {
+            return res
+              .status(400)
+              .send({ msg: "Unable to create user.", err: err });
+          });
+      }
     }
   }
 };
 
 const verifyEmail = async (req, res) => {
-  getUserById({ _id: req.body.id })
-    .then(async (user) => {
+  const userId = req.params.id;
+  const tokenId = req.params.token;
+
+  getUserById({ _id: userId })
+    .then(async () => {
       await Token.findOne({
-        user_id: user._id,
-        token: req.params.token,
+        user_id: userId,
+        token: tokenId,
       })
         .then(async (token) => {
           if (token) {
-            User.findOneAndUpdate(user._id, {
-              email_verified: true,
-              reg_state: "PENDING_PHONE_VERIFICATION",
-            }).then(async () => {
-              await Token.findByIdAndRemove(token._id)
-                .then(() => {
-                  return res
-                    .status(200)
-                    .send({ data: "Email verified successfully." });
+            await Token.findOneAndDelete(tokenId)
+              .then(() => {
+                User.findOneAndUpdate(userId, {
+                  email_verified: true,
                 })
-                .catch((err) => {
-                  return res
-                    .status(400)
-                    .send({ data: "Unable to update user.", err: err });
-                });
-            });
+                  .then(() => {
+                    return res
+                      .status(200)
+                      .send({ data: "Email verified successfully." });
+                  })
+                  .catch((err) => {
+                    return res
+                      .status(400)
+                      .send({ msg: "Unable to update user.", err: err });
+                  });
+              })
+              .catch((err) => {
+                return res
+                  .status(400)
+                  .send({ msg: "Unable to update user.", err: err });
+              });
           } else {
             return res.status(400).send({
-              data: "Verification link is invalid or expired.",
+              msg: "Verification link is invalid or expired.",
               err: err,
             });
           }
         })
         .catch((err) => {
           return res.status(400).send({
-            data: "Verification link is invalid or expired.",
+            msg: "Verification link is invalid or expired.",
             err: err,
           });
         });
     })
     .catch((err) => {
-      return res.status(400).send({ data: "User wasn't found.", err: err });
+      return res.status(400).send({ msg: "User wasn't found.", err: err });
     });
 };
 
@@ -417,7 +464,7 @@ const resendVerificationEmail = async (req, res) => {
         moment().diff(moment(token.created_at), "minutes") < 2;
 
       if (token) {
-        await Token.findByIdAndRemove(token._id);
+        await Token.findOneAndDelete(token._id);
       }
 
       if (allowResend) {
@@ -435,35 +482,35 @@ const resendVerificationEmail = async (req, res) => {
           .catch((err) => {
             return res
               .status(400)
-              .send({ data: "Unable to create token.", err: err });
+              .send({ msg: "Unable to create token.", err: err });
           });
       } else {
         return res.status(400).send({
-          data: "Please wait at least 2 minutes before trying again.",
+          msg: "Please wait at least 2 minutes before trying again.",
         });
       }
     })
     .catch((err) => {
-      return res.status(400).send({ data: "User wasn't found.", err: err });
+      return res.status(400).send({ msg: "User wasn't found.", err: err });
     });
 };
 
 const verifyPhoneNumber = (id, otp) => {
   return new Promise(async (resolve, reject) => {
     await getUserById({ _id: id })
-      .then(async (user) => {
+      .then(async () => {
         await Token.findOne({
-          user_id: user._id,
+          user_id: id,
           token: otp,
         })
           .then(async (token) => {
             if (token) {
               if (moment().diff(moment(token.created_at), "minutes") < 15) {
-                User.findOneAndUpdate(user._id, {
+                User.findOneAndUpdate(id, {
                   phone_verified: true,
                   reg_state: "PENDING_REF",
                 }).then(async () => {
-                  await Token.findByIdAndRemove(token._id)
+                  await Token.findOneAndDelete({ _id: token._id })
                     .then(() => {
                       resolve({
                         code: 200,
@@ -471,26 +518,26 @@ const verifyPhoneNumber = (id, otp) => {
                       });
                     })
                     .catch((err) => {
-                      reject({ data: "Unable to update user.", err: err });
+                      reject({ msg: "Unable to update user.", err: err });
                     });
                 });
               } else {
-                reject({ data: "OTP is expired, try again." });
+                reject({ msg: "OTP is expired, try again." });
               }
             } else {
-              reject({ data: "OTP is incorrect." });
+              reject({ msg: "OTP is incorrect." });
             }
           })
           .catch((err) => {
             reject({
-              data: "Verification link is invalid or expired.",
+              msg: "Verification link is invalid or expired.",
               err: err,
             });
           });
       })
       .catch((err) => {
         reject({
-          data: "User wasn't found.",
+          msg: "User wasn't found.",
           err: err,
         });
       });
@@ -506,7 +553,7 @@ const resendPhoneOTP = async (req, res) => {
         moment().diff(moment(token.created_at), "minutes") < 2;
 
       if (token) {
-        await Token.findByIdAndRemove(token._id);
+        await Token.findOneAndDelete(token._id);
       }
 
       if (allowResend) {
@@ -525,7 +572,7 @@ const resendPhoneOTP = async (req, res) => {
                 if (err) {
                   return res
                     .status(400)
-                    .send({ data: "Unable to send OTP", err: err });
+                    .send({ msg: "Unable to send OTP", err: err });
                 } else {
                   return res.status(200).send({
                     data: "OTP sent to your phone number.",
@@ -538,27 +585,29 @@ const resendPhoneOTP = async (req, res) => {
           .catch((err) => {
             return res
               .status(400)
-              .send({ data: "Unable to create token.", err: err });
+              .send({ msg: "Unable to create token.", err: err });
           });
       } else {
         return res.status(400).send({
-          data: "Please wait at least 2 minutes before trying again.",
+          msg: "Please wait at least 2 minutes before trying again.",
         });
       }
     })
     .catch((err) => {
-      return res.status(400).send({ data: "Couldn't fetch user.", err: err });
+      return res.status(400).send({ msg: "Couldn't fetch user.", err: err });
     });
 };
 
 const getUserByKey = async (key) => {
-  await User.findOne(key)
-    .then((res) => {
-      return res;
-    })
-    .catch((err) => {
-      return err;
-    });
+  return new Promise((resolve, reject) =>
+    User.findOne(key)
+      .then((res) => {
+        resolve(res);
+      })
+      .catch((err) => {
+        reject(err);
+      })
+  );
 };
 
 const getUserById = async (id) => {
@@ -607,9 +656,79 @@ const validNicFormat = (nic) => {
   return true;
 };
 
+const validMobileNumber = (value) => {
+  if (value.startsWith("94")) {
+    const mobileNumber = value.slice(2);
+    return /^7\d{8}$/.test(mobileNumber);
+  }
+  return false;
+};
+
+const startOver = async (req, res) => {
+  const deviceToken = req.params.id;
+
+  const userFound = await getUserByKey({ device_token: deviceToken });
+
+  if (userFound) {
+    await User.findOneAndUpdate(
+      {
+        device_token: deviceToken,
+      },
+      {
+        device_token: deviceToken + "-used",
+      },
+      { upsert: true, new: true }
+    )
+      .then((userResult) => {
+        return res.status(200).send({ data: userResult });
+      })
+      .catch((err) => {
+        return res.status(400).send({ msg: "Unable to update user", err: err });
+      });
+  }
+};
+
+const updateRegistration = async (req, res) => {
+  const userId = req.params.id;
+
+  const userFound = await getUserById(userId);
+
+  if (userFound) {
+    await User.findOneAndUpdate(
+      {
+        _id: userId,
+      },
+      {
+        email_verified: false,
+        reg_state: "PENDING_DATA",
+      },
+      { upsert: true, new: true }
+    )
+      .then((userResult) => {
+        return res.status(200).send({ data: userResult });
+      })
+      .catch((err) => {
+        return res.status(400).send({ msg: "Unable to update user", err: err });
+      });
+  }
+};
+
+const getRegistrationDetails = async (req, res) => {
+  User.findById(req.params.id)
+    .then((userResult) => {
+      return res.status(200).send({ data: userResult });
+    })
+    .catch((err) => {
+      return res.status(400).send({ msg: "User wasn't found", err: err });
+    });
+};
+
 module.exports = {
+  getRegistrationDetails,
   login,
   register,
+  startOver,
+  updateRegistration,
   verifyEmail,
   resendVerificationEmail,
   resendPhoneOTP,

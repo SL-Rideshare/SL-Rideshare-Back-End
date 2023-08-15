@@ -1,18 +1,16 @@
 const mongoose = require("mongoose");
 
-let UserSchema = new mongoose.Schema({
+let userSchema = new mongoose.Schema({
   first_name: {
     type: String,
     default: "",
     required: true,
   },
-
   last_name: {
     type: String,
     default: "",
     required: true,
   },
-
   nic: {
     type: String,
     default: "",
@@ -20,118 +18,109 @@ let UserSchema = new mongoose.Schema({
     maxLength: 12,
     required: true,
   },
-
+  captured_nic: {
+    type: String,
+    default: "",
+    required: false,
+  },
+  nic_location: {
+    type: String,
+    default: "",
+    required: false,
+  },
   dob: {
-    type: Date,
+    type: String,
     default: "",
     required: true,
   },
-
   display_img: {
     type: String,
     default: "",
     required: false,
   },
-
   username: {
     type: String,
     minLength: 6,
     maxLength: 24,
     required: false,
   },
-
   email: {
     type: String,
     default: "",
     required: false,
   },
-
   contact_number: {
     type: String,
     default: "",
     required: false,
   },
-
-  imei: {
+  device_token: {
     type: String,
     default: "",
-    minLength: 15,
-    maxLength: 15,
+    minLength: 16,
+    maxLength: 16,
     required: true,
   },
-
   address: {
     type: String,
     default: "",
     required: false,
   },
-
   postal_code: {
     type: Number,
     default: "",
     required: false,
   },
-
   password: {
     type: String,
     minLength: 6,
     required: false,
   },
-
   occupation: {
     type: String,
     default: "",
     required: false,
   },
-
   description: {
     type: String,
     default: "",
     required: false,
   },
-
   diseases_and_disabilities: {
     type: String,
     default: "",
     required: false,
   },
-
-  ref_name: {
-    type: String,
+  ref_by: {
+    type: Number,
     default: "",
     required: false,
   },
-
-  ref_id: {
-    type: String,
+  ref_code: {
+    type: Number,
     default: "",
     required: false,
   },
-
   recommended: {
     type: Boolean,
     default: false,
     required: false,
   },
-
   under_review: {
     type: Boolean,
     default: false,
     required: false,
   },
-
   email_verified: {
     type: Boolean,
     default: false,
     required: false,
   },
-
   phone_verified: {
     type: Boolean,
     default: false,
     required: false,
   },
-
   reg_state: {
     type: String,
     enum: [
@@ -146,6 +135,14 @@ let UserSchema = new mongoose.Schema({
     default: "INIT",
     required: false,
   },
+  level: {
+    type: Number,
+    default: 1,
+  },
+  credit_balance: {
+    type: Number,
+    default: 100,
+  },
 });
 
-module.exports = User = mongoose.model("user", UserSchema);
+module.exports = User = mongoose.model("user", userSchema);

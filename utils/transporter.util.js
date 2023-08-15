@@ -1,27 +1,25 @@
-const nodemailer = require("nodemailer");
+const sgMail = require("@sendgrid/mail");
 
 const sendEmail = async (email, subject, text) => {
   return new Promise(async (resolve, reject) => {
     try {
-      const transporter = nodemailer.createTransport({
-        host: process.env.EMAIL_HOST,
-        service: process.env.EMAIL_SERVICE,
-        port: 587,
-        secure: true,
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS,
-        },
-      });
-
-      await transporter.sendMail({
-        from: process.env.EMAIL_USER,
+      sgMail.setApiKey(
+        "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"
+      );
+      const msg = {
         to: email,
+        from: "chamodnugekotuwa@gmail.com",
         subject: subject,
         text: text,
-      });
-
-      resolve({ data: "Email sent sucessfully." });
+      };
+      sgMail
+        .send(msg)
+        .then(() => {
+          resolve({ data: "Email sent sucessfully." });
+        })
+        .catch((error) => {
+          console.error(error);
+        });
     } catch (error) {
       reject({ data: "Email failed to send", err: error });
     }
