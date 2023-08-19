@@ -89,8 +89,145 @@ const createGroup = async (req, res) => {
   }
 };
 
+const sendGroupRequest = async (req, res) => {
+  const { group_id, user_id } = req.params;
+
+  if (!group_id || !user_id) {
+    return res.status(400).send({ msg: "Content not found" });
+  }
+
+  try {
+    const group = await Group.findById(group_id);
+
+    if (!group) {
+      return res.status(404).json({ message: "Group not found" });
+    }
+
+    const user = await User.findById(user_id);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (group.members.includes(user_id)) {
+      return res
+        .status(400)
+        .json({ message: "User is already a member of the group" });
+    }
+
+    if (group.requests.includes(user_id)) {
+      return res
+        .status(400)
+        .json({ message: "User has already sent a request" });
+    }
+
+    group.requests.push(user_id);
+    await group.save();
+
+    res.status(200).json(group);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+const acceptGroupRequest = async (req, res) => {
+  const { group_id, user_id } = req.params;
+
+  if (!group_id || !user_id) {
+    return res.status(400).send({ msg: "Content not found" });
+  }
+
+  try {
+    const group = await Group.findById(group_id);
+
+    if (!group) {
+      return res.status(404).json({ message: "Group not found" });
+    }
+
+    const user = await User.findById(user_id);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const userRequestIndex = group.requests.indexOf(user_id);
+
+    if (userRequestIndex === -1) {
+      return res.status(404).json({ message: "User request not found" });
+    }
+
+    if (!group.members.includes(user_id)) {
+      group.members.push(user_id);
+    }
+
+    group.requests.splice(userRequestIndex, 1);
+
+    await group.save();
+
+    res.status(200).json(group);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+const leaveGroup = async (req, res) => {
+  const { group_id, user_id } = req.params;
+
+  if (!group_id || !user_id) {
+    return res.status(400).send({ msg: "Content not found" });
+  }
+
+  try {
+    const group = await Group.findById(group_id);
+
+    if (!group) {
+      return res.status(404).json({ message: "Group not found" });
+    }
+
+    const user = await User.findById(user_id);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (!group.members.includes(user_id)) {
+      return res.status(404).json({ message: "Not a member" });
+    }
+
+    const updatedMembers = group.members.filter(
+      (memberId) => memberId.toString() !== user_id
+    );
+    group.members = updatedMembers;
+    await group.save();
+
+    res.status(200).json(group);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+const deleteGroup = async (req, res) => {
+  try {
+    const group = await Group.findByIdAndDelete(req.params.id);
+    if (!group) {
+      return res.status(404).json({ message: "Group not found" });
+    }
+    res.json(group);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 module.exports = {
   getGroup,
   getUserGroups,
   createGroup,
+  sendGroupRequest,
+  acceptGroupRequest,
+  leaveGroup,
+  deleteGroup,
 };
