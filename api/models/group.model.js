@@ -6,6 +6,11 @@ let groupSchema = new mongoose.Schema({
     default: "",
     required: true,
   },
+  img_url: {
+    type: String,
+    default: "",
+    required: false,
+  },
   created_by: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "user",

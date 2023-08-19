@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-const vehicleRegistrationSchema = new mongoose.Schema({
+const vehicleSchema = new mongoose.Schema({
   registration: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "vehicleRegistration",
@@ -25,9 +25,6 @@ const vehicleRegistrationSchema = new mongoose.Schema({
   },
 });
 
-const VehicleRegistration = mongoose.model(
-  "vehicleRegistration",
-  vehicleRegistrationSchema
-);
+const Vehicle = mongoose.model("vehicle", vehicleSchema);
 
-module.exports = VehicleRegistration;
+module.exports = Vehicle;

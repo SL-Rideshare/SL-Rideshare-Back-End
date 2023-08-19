@@ -1,6 +1,7 @@
 const router = require("express").Router();
 
 const UserRouter = require("./user.routes");
+const GroupRouter = require("./group.routes");
 
 router.use(function (req, res, next) {
   res.header(
@@ -11,5 +12,6 @@ router.use(function (req, res, next) {
 });
 
 router.use("/user", UserRouter);
+router.use("/group", GroupRouter);
 
 module.exports = router;
