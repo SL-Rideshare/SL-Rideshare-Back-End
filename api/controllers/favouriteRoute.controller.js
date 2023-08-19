@@ -1,88 +1,64 @@
-const { User, Group } = require("../models");
+const { FavouriteRoute } = require("../models");
 
-const getGroup = async (req, res) => {
-  const name = req.params.name;
+const getRoutes = async (req, res) => {
+  const user_id = req.params.user_id;
 
-  if (!name) {
-    return res.status(400).send({ msg: "Content not found" });
+  try {
+    const routes = await FavouriteRoute.find({ user_id });
+    res.status(200).json(routes);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
   }
-
-  Group.findOne({ name })
-    .populate("created_by", "first_name last_name")
-    .populate("members", "first_name last_name")
-    .populate("requests", "first_name last_name")
-    .exec((err, group) => {
-      if (err) {
-        return res.status(400).send({ msg: err });
-      }
-
-      if (!group) {
-        return res.status(404).send({ data: "Group not found." });
-      }
-
-      return res.status(200).send(group);
-    });
 };
 
-const getUserGroups = async (req, res) => {
-  const id = req.params.id;
+const createRoute = async (req, res) => {
+  const user_id = req.params.user_id;
 
-  if (!id) {
-    return res.status(400).send({ msg: "Content not found" });
-  }
+  const { name, starting_destination, ending_destination, points_between } =
+    req.body;
 
-  const user = await User.findById(id);
-
-  if (!user) {
-    return res.status(404).json({ message: "User not found" });
-  }
-
-  Group.find({
-    $or: [{ created_by: id }, { members: { $in: [id] } }],
-  })
-    .populate("created_by", "first_name last_name")
-    .populate("members", "first_name last_name")
-    .populate("requests", "first_name last_name")
-    .exec((err, groups) => {
-      if (err) {
-        return res.status(400).send({ msg: err });
-      }
-
-      if (!groups || groups.length === 0) {
-        return res.status(404).send({ data: "No groups found." });
-      }
-
-      return res.status(200).send(groups);
-    });
-};
-
-const createGroup = async (req, res) => {
-  const { name, user_id } = req.body;
-
-  if (!name || !user_id) {
-    return res.status(400).send({ msg: "Content not found" });
+  if (
+    !name ||
+    !starting_destination ||
+    !ending_destination ||
+    !points_between
+  ) {
+    return res.status(400).json({ message: "Incomplete route data" });
   }
 
   try {
-    const groupFound = await Group.findOne({ name });
+    const existingRoute = await FavouriteRoute.findOne({ user_id, name });
 
-    if (groupFound) {
-      return res.status(404).json({ message: "Group name already exists" });
+    if (existingRoute) {
+      return res.status(400).json({
+        message: "A route with the same name already exists for this user",
+      });
     }
 
-    const user = await User.findById(user_id);
-
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    const group = new Group({
+    const newRoute = new FavouriteRoute({
+      user_id,
       name,
-      created_by: user_id,
+      starting_destination,
+      ending_destination,
+      points_between,
     });
 
-    await group.save();
-    res.status(200).json(group);
+    const savedRoute = await newRoute.save();
+    res.status(201).json(savedRoute);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+const deleteRoute = async (req, res) => {
+  try {
+    const route = await FavouriteRoute.findByIdAndDelete(req.params.id);
+    if (!route) {
+      return res.status(404).json({ message: "Route not found" });
+    }
+    res.json(route);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });
@@ -90,7 +66,7 @@ const createGroup = async (req, res) => {
 };
 
 module.exports = {
-  getGroup,
-  getUserGroups,
-  createGroup,
+  getRoutes,
+  createRoute,
+  deleteRoute,
 };

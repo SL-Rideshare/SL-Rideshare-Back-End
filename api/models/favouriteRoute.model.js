@@ -11,6 +11,11 @@ const favouriteRouteSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  user_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "user",
+    required: true,
+  },
   starting_destination: pointSchema,
   ending_destination: pointSchema,
   points_between: [pointSchema],
