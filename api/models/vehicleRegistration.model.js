@@ -1,6 +1,11 @@
 const mongoose = require("mongoose");
 
 const vehicleRegistrationSchema = new mongoose.Schema({
+  user_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "user",
+    required: false,
+  },
   license_number: {
     type: String,
     required: true,

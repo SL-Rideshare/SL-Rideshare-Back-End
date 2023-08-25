@@ -15,15 +15,42 @@ const driveRequestSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
-  code: {
+  status: {
+    type: String,
+    enum: ["ACCEPTED", "REJECTED", "PENDING", "CANCELLED"],
+    default: "PENDING",
+    required: false,
+  },
+  cancellation_reason: {
+    type: String,
+    default: "",
+    required: false,
+  },
+  start_code: {
     type: Number,
     required: true,
   },
-  scanned: {
+  start_scanned: {
     type: Boolean,
     default: false,
   },
+  end_code: {
+    type: Number,
+    required: true,
+  },
+  end_scanned: {
+    type: Boolean,
+    default: false,
+  },
+  goods_is_kilo: {
+    type: Boolean,
+    required: true,
+  },
   goods_availability: {
+    type: Number,
+    required: false,
+  },
+  goods_receiver_ref_code: {
     type: Number,
     required: false,
   },

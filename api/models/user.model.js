@@ -143,6 +143,10 @@ let userSchema = new mongoose.Schema({
     type: Number,
     default: 100,
   },
+  on_hold: {
+    type: Number,
+    default: 0,
+  },
 });
 
 module.exports = User = mongoose.model("user", userSchema);

@@ -5,6 +5,7 @@ const DriveRequest = require("./driveRequest.model");
 const FavouriteRoute = require("./favouriteRoute.model");
 const ScheduledDrive = require("./scheduledDrive.model");
 const Transaction = require("./transaction.model");
+const Payment = require("./payment.model");
 const VehicleRegistration = require("./vehicleRegistration.model");
 const Vehicle = require("./vehicle.model");
 
@@ -16,6 +17,7 @@ module.exports = {
   FavouriteRoute,
   ScheduledDrive,
   Transaction,
+  Payment,
   VehicleRegistration,
   Vehicle,
 };

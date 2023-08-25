@@ -45,7 +45,7 @@ const createRoute = async (req, res) => {
     });
 
     const savedRoute = await newRoute.save();
-    res.status(201).json(savedRoute);
+    res.status(200).json(savedRoute);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });

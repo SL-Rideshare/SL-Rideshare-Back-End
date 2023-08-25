@@ -71,6 +71,19 @@ const scheduledDriveSchema = new mongoose.Schema({
     type: Date,
     required: true,
   },
+  cancelled: {
+    type: Boolean,
+    default: false,
+  },
+  cancellation_reason: {
+    type: String,
+    default: "",
+    required: false,
+  },
+  stop_new_requests: {
+    type: Boolean,
+    default: false,
+  },
   starting_destination: pointSchema,
   ending_destination: pointSchema,
   points_between: [pointSchema],
