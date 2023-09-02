@@ -15,6 +15,10 @@ const vehicleSchema = new mongoose.Schema({
     type: Number,
     required: false,
   },
+  type: {
+    type: String,
+    required: true,
+  },
   trips: {
     type: Number,
     required: false,

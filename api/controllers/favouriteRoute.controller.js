@@ -15,15 +15,9 @@ const getRoutes = async (req, res) => {
 const createRoute = async (req, res) => {
   const user_id = req.params.user_id;
 
-  const { name, starting_destination, ending_destination, points_between } =
-    req.body;
+  const { name, points } = req.body;
 
-  if (
-    !name ||
-    !starting_destination ||
-    !ending_destination ||
-    !points_between
-  ) {
+  if (!name || !points) {
     return res.status(400).json({ message: "Incomplete route data" });
   }
 
@@ -39,9 +33,7 @@ const createRoute = async (req, res) => {
     const newRoute = new FavouriteRoute({
       user_id,
       name,
-      starting_destination,
-      ending_destination,
-      points_between,
+      points,
     });
 
     const savedRoute = await newRoute.save();

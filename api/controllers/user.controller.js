@@ -8,6 +8,7 @@ const sendEmail = require("../../utils/transporter.util");
 const { User, Token } = require("../models");
 
 const Nexmo = require("nexmo");
+const config = require("../../config/auth.js");
 
 const nexmo = new Nexmo({
   apiKey: process.env.NEXMO_API,
@@ -41,11 +42,15 @@ const login = async (req, res) => {
       });
     }
 
-    var token = jwt.sign({ id: user._id }, "SLRS", {
+    var token = jwt.sign({ id: user._id }, config.secret, {
       expiresIn: 86400,
     });
 
-    return res.status(200).send({ ...user, token: token });
+    // Omit the password field from the response
+    const userWithoutPassword = { ...user._doc };
+    delete userWithoutPassword.password;
+
+    return res.status(200).send({ ...userWithoutPassword, token: token });
   });
 };
 

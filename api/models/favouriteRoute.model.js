@@ -1,7 +1,8 @@
 const mongoose = require("mongoose");
 
 const pointSchema = new mongoose.Schema({
-  name: String,
+  description: String,
+  label: String,
   longitude: Number,
   latitude: Number,
 });
@@ -16,9 +17,7 @@ const favouriteRouteSchema = new mongoose.Schema({
     ref: "user",
     required: true,
   },
-  starting_destination: pointSchema,
-  ending_destination: pointSchema,
-  points_between: [pointSchema],
+  points: [pointSchema],
 });
 
 const FavouriteRoute = mongoose.model("favouriteRoute", favouriteRouteSchema);

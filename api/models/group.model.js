@@ -16,6 +16,10 @@ let groupSchema = new mongoose.Schema({
     ref: "user",
     required: true,
   },
+  created_at: {
+    type: Date,
+    default: Date.now,
+  },
   members: [
     {
       type: mongoose.Schema.Types.ObjectId,

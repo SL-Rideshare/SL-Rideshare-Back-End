@@ -116,9 +116,7 @@ const createScheduleDrive = async (req, res) => {
     passengers_fee,
     passengers_fee_additional,
     start_date,
-    starting_destination,
-    ending_destination,
-    points_between,
+    points,
   } = req.body;
 
   try {
@@ -175,9 +173,7 @@ const createScheduleDrive = async (req, res) => {
       passengers_fee,
       passengers_fee_additional,
       start_date,
-      starting_destination,
-      ending_destination,
-      points_between,
+      points,
     });
 
     const savedScheduledDrive = await newScheduledDrive.save();

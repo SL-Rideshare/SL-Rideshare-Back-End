@@ -1,8 +1,9 @@
 const jwt = require("jsonwebtoken");
 const config = require("../config/auth.js");
+const { User } = require("../api/models");
 
 verifyToken = (req, res, next) => {
-  let token = req.headers["x-access-token"];
+  let token = req.header("Authorization");
 
   if (!token) {
     return res.status(403).send({ data: "Token wasn't found." });
@@ -16,7 +17,7 @@ verifyToken = (req, res, next) => {
     }
     req.user_id = decoded.id;
 
-    const user = await Customer.findById(req.user_id);
+    const user = await User.findById(req.user_id);
 
     if (!user) {
       return res.status(404).json({ message: "User not found!" });

@@ -1,7 +1,8 @@
 const mongoose = require("mongoose");
 
 const pointSchema = new mongoose.Schema({
-  name: String,
+  description: String,
+  label: String,
   longitude: Number,
   latitude: Number,
 });
@@ -12,6 +13,11 @@ const scheduledDriveSchema = new mongoose.Schema({
     ref: "user",
     required: true,
   },
+  // vehicle: {
+  //   type: mongoose.Schema.Types.ObjectId,
+  //   ref: "vehicle",
+  //   required: true,
+  // },
   private: {
     type: Boolean,
     required: true,
@@ -84,9 +90,7 @@ const scheduledDriveSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
-  starting_destination: pointSchema,
-  ending_destination: pointSchema,
-  points_between: [pointSchema],
+  points: [pointSchema],
 });
 
 const ScheduledDrive = mongoose.model("scheduledDrive", scheduledDriveSchema);
