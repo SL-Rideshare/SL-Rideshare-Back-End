@@ -5,15 +5,16 @@ const searchDrives = async (req, res) => {
     const {
       private,
       group_id,
-      goods_is_kilo,
       goods_is_paid,
       goods_availability,
       goods_receiver_ref_code,
       passengers_is_paid,
       passengers_availability,
+      starting_point,
+      ending_point,
     } = req.body;
 
-    let query = {
+    const query = {
       cancelled: false,
       stop_new_requests: false,
     };
@@ -28,11 +29,7 @@ const searchDrives = async (req, res) => {
     }
 
     if (goods_is_paid !== undefined) {
-      if (
-        goods_is_paid &&
-        !goods_receiver_ref_code &&
-        !passengers_availability
-      ) {
+      if (goods_is_paid && !goods_receiver_ref_code) {
         return res.status(400).json({
           message: "Goods is paid, goods_receiver_ref_code is missing",
         });
@@ -79,6 +76,43 @@ const searchDrives = async (req, res) => {
           { passengers_is_paid: { $exists: false } },
         ],
       },
+      {
+        $or: [
+          {
+            points: {
+              $geoWithin: {
+                $geometry: {
+                  type: "Polygon",
+                  coordinates: [
+                    [
+                      [starting_point.longitude, starting_point.latitude],
+                      [ending_point.longitude, ending_point.latitude],
+                      [
+                        (starting_point.longitude + ending_point.longitude) / 2,
+                        (starting_point.latitude + ending_point.latitude) / 2,
+                      ],
+                      [starting_point.longitude, starting_point.latitude],
+                    ],
+                  ],
+                },
+              },
+            },
+          },
+          {
+            points: {
+              $geoIntersects: {
+                $geometry: {
+                  type: "LineString",
+                  coordinates: [
+                    [starting_point.longitude, starting_point.latitude],
+                    [ending_point.longitude, ending_point.latitude],
+                  ],
+                },
+              },
+            },
+          },
+        ],
+      },
     ];
 
     const scheduledDrives = await ScheduledDrive.find(query);
@@ -93,7 +127,9 @@ const getDrives = async (req, res) => {
   const user_id = req.params.user_id;
 
   try {
-    const scheduledDrives = await ScheduledDrive.find({ created_by: user_id });
+    const scheduledDrives = await ScheduledDrive.find({ created_by: user_id })
+      .populate("vehicle")
+      .populate("group");
     res.status(200).json(scheduledDrives);
   } catch (err) {
     console.error(err);
@@ -103,7 +139,7 @@ const getDrives = async (req, res) => {
 
 const createScheduleDrive = async (req, res) => {
   const {
-    user_id,
+    created_by,
     private,
     group,
     goods_is_paid,
@@ -137,10 +173,6 @@ const createScheduleDrive = async (req, res) => {
           .status(400)
           .json({ message: "Goods payment details are required" });
       }
-    } else if (!goods_availability) {
-      return res
-        .status(400)
-        .json({ message: "Goods availability is required" });
     }
 
     if (passengers_is_paid) {
@@ -153,14 +185,10 @@ const createScheduleDrive = async (req, res) => {
           .status(400)
           .json({ message: "Passengers payment details are required" });
       }
-    } else if (!passengers_availability) {
-      return res
-        .status(400)
-        .json({ message: "Passengers availability is required" });
     }
 
     const newScheduledDrive = new ScheduledDrive({
-      created_by: user_id,
+      created_by,
       private,
       group,
       goods_is_paid,
@@ -173,7 +201,11 @@ const createScheduleDrive = async (req, res) => {
       passengers_fee,
       passengers_fee_additional,
       start_date,
-      points,
+      points: points.map((point) => ({
+        type: "Point",
+        coordinates: [point.longitude, point.latitude],
+        description: point.description,
+      })),
     });
 
     const savedScheduledDrive = await newScheduledDrive.save();

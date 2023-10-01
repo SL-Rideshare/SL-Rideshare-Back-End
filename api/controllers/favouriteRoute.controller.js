@@ -33,7 +33,11 @@ const createRoute = async (req, res) => {
     const newRoute = new FavouriteRoute({
       user_id,
       name,
-      points,
+      points: points.map((point) => ({
+        type: "Point",
+        coordinates: [point.longitude, point.latitude],
+        description: point.description,
+      })),
     });
 
     const savedRoute = await newRoute.save();

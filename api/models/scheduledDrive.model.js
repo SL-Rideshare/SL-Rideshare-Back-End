@@ -1,10 +1,17 @@
 const mongoose = require("mongoose");
 
 const pointSchema = new mongoose.Schema({
+  type: {
+    type: String,
+    enum: ["Point"],
+    required: true,
+  },
+  coordinates: {
+    type: [Number],
+    required: true,
+    index: { type: "2dsphere", sparse: true },
+  },
   description: String,
-  label: String,
-  longitude: Number,
-  latitude: Number,
 });
 
 const scheduledDriveSchema = new mongoose.Schema({
@@ -13,11 +20,11 @@ const scheduledDriveSchema = new mongoose.Schema({
     ref: "user",
     required: true,
   },
-  // vehicle: {
-  //   type: mongoose.Schema.Types.ObjectId,
-  //   ref: "vehicle",
-  //   required: true,
-  // },
+  vehicle: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "vehicle",
+    required: false,
+  },
   private: {
     type: Boolean,
     required: true,

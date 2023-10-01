@@ -12,6 +12,7 @@ const router = require("./api/routes");
 
 const app = express();
 const server = http.createServer(app);
+const io = require("socket.io")(server);
 
 connectDB();
 
@@ -22,6 +23,8 @@ app.use(morgan("dev"));
 app.use("/api", router);
 
 app.use(function (err, req, res, next) {
+  req.io = io;
+  next();
   res.status(err.status || 404).send("error: route doesn't exist!");
 });
 

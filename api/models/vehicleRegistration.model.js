@@ -42,15 +42,15 @@ const vehicleRegistrationSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  engine_number: {
+    type: String,
+    required: true,
+  },
   reg_date: {
     type: String,
     required: true,
   },
   reg_front_url: {
-    type: String,
-    required: false,
-  },
-  reg_back_url: {
     type: String,
     required: false,
   },

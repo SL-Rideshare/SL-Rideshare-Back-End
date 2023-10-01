@@ -4,8 +4,8 @@ const { verifyToken } = require("../../middleware/authJwt");
 
 const { ScheduleDriveController } = require("../controllers");
 
-router.get("/", verifyToken, ScheduleDriveController.searchDrives);
 router.get("/:user_id", verifyToken, ScheduleDriveController.getDrives);
+router.post("/search", verifyToken, ScheduleDriveController.searchDrives);
 router.post(
   "/:user_id",
   verifyToken,

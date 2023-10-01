@@ -22,7 +22,16 @@ const getDriverRequests = async (req, res) => {
   const user_id = req.params.user_id;
 
   try {
-    const driverRequests = await DriveRequest.find()
+    const driverRequests = await DriveRequest.find({
+      $or: [
+        {
+          status: "PENDING",
+        },
+        {
+          status: "ACCEPTED",
+        },
+      ],
+    })
       .populate({
         path: "schedule",
         match: { created_by: user_id },
@@ -155,6 +164,14 @@ const acceptOrRejectRequest = async (req, res) => {
 
     driveRequest.status = status;
     await driveRequest.save();
+
+    const userSocket = req.io.of("/").sockets.get(driveRequest.from.toString());
+    if (userSocket) {
+      userSocket.emit("driveRequestStatusChanged", {
+        requestId: driveRequest._id,
+        newStatus: driveRequest.status,
+      });
+    }
 
     res.status(200).json(driveRequest);
   } catch (err) {

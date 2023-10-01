@@ -1,10 +1,17 @@
 const mongoose = require("mongoose");
 
 const pointSchema = new mongoose.Schema({
+  type: {
+    type: String,
+    enum: ["Point"],
+    required: true,
+  },
+  coordinates: {
+    type: [Number],
+    required: true,
+    index: { type: "2dsphere", sparse: true },
+  },
   description: String,
-  label: String,
-  longitude: Number,
-  latitude: Number,
 });
 
 const favouriteRouteSchema = new mongoose.Schema({
